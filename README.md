@@ -26,11 +26,9 @@ print("Path to dataset files:", path)
 ```
 coke_studio_bangla/
 ├── coke_studio_bangla_dataset.py   # Main pipeline script
-├── dump_descriptions.py            # Utility to dump raw descriptions
 ├── requirements.txt                # Python dependencies
 ├── .env                            # Your API key (NOT pushed to GitHub)
 ├── .gitignore                      # Protects .env and generated files
-├── python_environment_protocol.md  # Virtual environment SOP guide
 └── README.md                       # This file
 ```
 
@@ -40,59 +38,67 @@ coke_studio_bangla/
 
 Each row represents one YouTube video from the Coke Studio Bangla channel with the following columns:
 
-| Column | Description |
-|---|---|
-| `Video_ID` | Unique YouTube video identifier |
-| `Video_URL` | Direct link to the YouTube video |
-| `Title` | Original video title (Bengali / English) |
-| `English_Title` | Auto-translated English title |
-| `Published_At` | Date the video was published (`YYYY-MM-DD`) |
-| `Video_Duration` | Duration in `MM:SS` or `HH:MM:SS` format |
-| `Views` | Total view count |
-| `Likes` | Total like count |
-| `Comments` | Total comment count |
-| `Video_Type` | Category: `Official Music Video`, `Reels`, `Shorts`, `Behind the Scenes`, `Celebration / Milestone`, `Live Event`, `Promo / Teaser`, `Uncategorized` |
-| `Season` | Season number: `Season 1`, `Season 2`, `Season 3`, or `Uncategorized` |
-| `Lead_Vocals` | Lead vocalist(s) extracted from the description |
-| `Spotify_Link` | Official Spotify streaming link (if available) |
-| `Director` | Music video director (if available) |
-| `Genre` | Detected genres from description (e.g. `Folk, Qawwali, R&B / Soul`). Only assigned for Official Music Videos |
-| `Thumbnail_URL` | Highest resolution thumbnail URL (for dashboards) |
-| `Last_Updated` | Timestamp when the data row was last fetched |
-| `Video_Details` | Full raw YouTube video description |
+| Column             | Description                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Video_ID`       | Unique YouTube video identifier                                                                                                                                     |
+| `Video_URL`      | Direct link to the YouTube video                                                                                                                                    |
+| `Title`          | Original video title (Bengali / English)                                                                                                                            |
+| `English_Title`  | Auto-translated English title                                                                                                                                       |
+| `Published_At`   | Date the video was published (`YYYY-MM-DD`)                                                                                                                       |
+| `Video_Duration` | Duration in `MM:SS` or `HH:MM:SS` format                                                                                                                        |
+| `Views`          | Total view count                                                                                                                                                    |
+| `Likes`          | Total like count                                                                                                                                                    |
+| `Comments`       | Total comment count                                                                                                                                                 |
+| `Video_Type`     | Category:`Official Music Video`, `Reels`, `Shorts`, `Behind the Scenes`, `Celebration / Milestone`, `Live Event`, `Promo / Teaser`, `Uncategorized` |
+| `Season`         | Season number:`Season 1`, `Season 2`, `Season 3`, or `Uncategorized`                                                                                        |
+| `Lead_Vocals`    | Lead vocalist(s) extracted from the description                                                                                                                     |
+| `Spotify_Link`   | Official Spotify streaming link (if available)                                                                                                                      |
+| `Director`       | Music video director (if available)                                                                                                                                 |
+| `Genre`          | Detected genres from description (e.g.`Folk, Qawwali, R&B / Soul`). Only assigned for Official Music Videos                                                       |
+| `Thumbnail_URL`  | Highest resolution thumbnail URL (for dashboards)                                                                                                                   |
+| `Last_Updated`   | Timestamp when the data row was last fetched                                                                                                                        |
+| `Video_Details`  | Full raw YouTube video description                                                                                                                                  |
 
 ---
 
 ## ⚙️ Running the Script Yourself
 
 ### Step 1: Clone the repository
+
 ```bash
 git clone https://github.com/your-username/coke-studio-bangla.git
 cd coke-studio-bangla
 ```
 
 ### Step 2: Create and activate a virtual environment
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\activate
 ```
 
 ### Step 3: Install dependencies
+
 ```powershell
 pip install -r requirements.txt
 ```
 
 ### Step 4: Set up your API Key
+
 Create a `.env` file in the project root:
+
 ```
 YOUTUBE_API_KEY=your_youtube_api_key_here
 ```
+
 > Get a free YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/).
 
 ### Step 5: Run the pipeline
+
 ```powershell
 python coke_studio_bangla_dataset.py
 ```
+
 This will fetch all videos, enrich them, and save the output as `coke_studio_bangla_raw.csv`.
 
 ---
