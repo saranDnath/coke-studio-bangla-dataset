@@ -1,17 +1,18 @@
-# Kaggle dataset description (copy-paste into Kaggle)
+### Context
+Coke Studio Bangla has revolutionized the music scene in Bangladesh by blending traditional folk, classical, and modern genres. This dataset provides a comprehensive, constantly updating look at the performance of every video on their official YouTube channel. 
 
-**Subtitle (max 80 chars):**
-Daily YouTube metrics & metadata for every Coke Studio Bangla video
+**Note:** This dataset is dynamic. It is powered by a scheduled Kaggle Notebook that hits the YouTube Data API v3 and updates the metrics automatically every day. You can view, copy, and learn from the dataset here: https://www.kaggle.com/code/sarandebnath/coke-studio-bangla-youtube-analytics 
 
-**Tags:** music, youtube, bangladesh, entertainment, data visualization, time series
+### Acknowledgements
+Data is sourced directly from the official **Coke Studio Bangla YouTube Channel** via the public Google YouTube Data API v3. 
 
-**License:** CC BY-NC-SA 4.0
+### Inspiration
+This dataset is perfect for:
+1.  **Exploratory Data Analysis (EDA):** Which seasons or artists generate the highest engagement rates? 
+2.  **Time-Series Analysis:** Tracking the longevity of a song's popularity.
+3.  **Data Visualization:** Building beautiful dashboards to track the musical footprint of the show.
 
----
-
-## About Dataset
-
-This dataset tracks **every video on the Coke Studio Bangla YouTube channel** and is **updated daily** from the YouTube Data API v3. Each row is one video, with engagement metrics (views, likes, comments) plus enriched metadata: video type, season, genre, lead vocalists, director and Spotify link.
+**Disclaimer:** All image and branding rights belong to Coke Studio Bangla and The Coca-Cola Company. This dataset is for educational purposes only.
 
 **🔴 Live dashboard:** https://sarandnath.shinyapps.io/coke-studio-bangla-day10-v2/
 **💻 Source code:** https://github.com/saranDnath/coke-studio-bangla-dataset
@@ -43,6 +44,3 @@ This dataset tracks **every video on the Coke Studio Bangla YouTube channel** an
 - **Genre:** whole-word keyword matching on the song's story paragraphs only (credits are ignored). Videos with no genre keyword default to *Fusion*.
 - These labels are heuristic. Please open a discussion if you find a misclassified video.
 
-### Source & disclaimer
-
-Data is collected from the public YouTube Data API v3. All music, videos and trademarks belong to Coke Studio Bangla and their respective owners. This is an independent analytics project and is not affiliated with The Coca-Cola Company.
