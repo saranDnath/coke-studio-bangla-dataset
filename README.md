@@ -1,128 +1,149 @@
-# 🎵 Coke Studio Bangla — YouTube Dataset Builder
+# 🎵 Coke Studio Bangla — YouTube Dataset & Dashboard
 
-An automated Python pipeline that fetches, enriches, and structures a comprehensive dataset of all **Coke Studio Bangla** YouTube videos using the YouTube Data API v3.
+An end-to-end data project that tracks every video on the **Coke Studio Bangla** YouTube channel. A Python pipeline pulls fresh metrics from the YouTube Data API v3, publishes them as a **daily-updated Kaggle dataset**, and an interactive **Python Shiny dashboard** ranks the top videos.
+
+**🔴 [Live Dashboard](https://sarandnath.shinyapps.io/coke-studio-bangla-day10-v2/)** &nbsp;·&nbsp;
+**📊 [Kaggle Dataset](https://www.kaggle.com/datasets/sarandebnath/coke-studio-bangla-youtube-metric-daily-update)**
+
+![Dashboard screenshot](images/dashboard.png)
 
 ---
 
-## 📦 Dataset on Kaggle (Recommended — No Setup Required!)
+## How it works
 
-I maintain a **live, auto-updating version** of this dataset on Kaggle. If you just want to analyse the data without running the code yourself, you can download it instantly:
+```
+YouTube Data API v3 ──► data_pipeline/ ──► Kaggle Dataset ──► dashboard/app.py ──► shinyapps.io
+  (all channel videos)   (runs daily        (CSV, versioned)    (downloads latest     (public web app)
+                          on Kaggle)                              data on start-up)
+```
+
+1. **Collect** – the pipeline pages through the channel's uploads playlist and fetches statistics, metadata and descriptions in batches of 50.
+2. **Enrich** – each video is classified (type, season, genre) and credits are parsed (lead vocals, director, Spotify link). Titles are translated to English.
+3. **Publish** – the script runs as a Kaggle notebook and saves a new dataset version.
+4. **Visualise** – the Shiny app downloads the latest dataset version with `kagglehub` when it starts.
+
+## 📦 Use the dataset (no setup required)
 
 ```python
 import kagglehub
 
-# Download latest version
 path = kagglehub.dataset_download("sarandebnath/coke-studio-bangla-youtube-metric-daily-update")
-
 print("Path to dataset files:", path)
 ```
 
-> The Kaggle dataset is refreshed regularly so it always contains the most up-to-date metrics like views, likes, and comments.
+## Dashboard features
 
----
+- **Top 5 ranking** by Views, Likes or Comments
+- **Filters:** Season, Genre (multi-select), Category (e.g. *Official Music Video*), and minimum Views / Likes / Comments
+- Season colour-coding (supports up to 10 seasons) with a legend that never overlaps the bars
+- Videos that share the same title are kept on separate rows and labelled with their type
 
-## 📁 Project Structure
+## Dataset columns
+
+| Column | Description |
+|---|---|
+| `Video_ID`, `Video_URL` | YouTube identifier and link |
+| `Title`, `English_Title` | Original title (Bengali / English) and its English translation |
+| `Published_At`, `Video_Duration` | Upload date (`YYYY-MM-DD`) and length (`MM:SS` or `HH:MM:SS`) |
+| `Views`, `Likes`, `Comments` | Engagement metrics at time of collection |
+| `Video_Type` | Official Music Video, Shorts, Reels, Behind the Scenes, Celebration / Milestone, Live Event, Promo / Teaser, Uncategorized |
+| `Season` | Season 1 – 10 (or Uncategorized) |
+| `Genre` | One or more of Folk, Fusion, Classical, Rock, Pop, Qawwali, Jazz, Latin, Hip-Hop, Afrobeat, R&B / Soul (music videos only) |
+| `Lead_Vocals` | Lead singers parsed from the description (backing vocals excluded) |
+| `Director`, `Spotify_Link` | Parsed from the video description |
+| `Thumbnail_URL` | Highest-resolution thumbnail available |
+| `Last_Updated`, `Video_Details` | Collection timestamp and full description |
+
+## Data-quality challenges solved
+
+Classifying videos from free-text titles and descriptions caused some subtle bugs. Fixing them is a large part of this project:
+
+| Problem | Example | Fix |
+|---|---|---|
+| Keywords matched **inside credits** | A music video was tagged *Reels* because its credits read "VIDEO PRODUCTION: INDIE **REELS**" | Plain words only count in the title; hashtags (`#Reels`) count anywhere |
+| Genre keywords matched **inside names and other words** | Every song was tagged *Folk* ("Mehedi Hasan An**sari**") and *Hip-Hop* ("Director of Photog**rap**hy") | Whole-word regex (`\b…\b`) and genre search restricted to the song's story paragraphs, not the credits list |
+| Wrong **director** extracted | "Assoc Creative Director:" matched before "Director:" | Match only lines that *start* with `Director:` and stop at the line end |
+| **Duplicate titles** overlapped in the chart | A 16-second clip and the full 69M-view video share one title | Plot on numeric positions and label duplicates with their video type |
+| Untagged **short clips** counted as songs | 16-second to 1-minute snippets | Videos ≤ 90 s are classified as Shorts (shortest real music video is ~3:48) |
+
+## Project structure
 
 ```
-coke_studio_bangla/
-├── coke_studio_bangla_dataset.py   # Main pipeline script
-├── requirements.txt                # Python dependencies
-├── .env                            # Your API key (NOT pushed to GitHub)
-├── .gitignore                      # Protects .env and generated files
-└── README.md                       # This file
+├── data_pipeline/
+│   ├── coke_studio_bangla_dataset.py   # YouTube API → enriched CSV
+│   └── requirements.txt
+├── dashboard/
+│   ├── app.py                          # Python Shiny app
+│   ├── styles.css
+│   └── requirements.txt
+├── docs/
+│   └── kaggle_dataset_description.md
+├── images/
+│   └── dashboard.png
+└── LICENSE
 ```
 
----
+## ⚙️ Run the data pipeline yourself
 
-## 🏗️ What the Dataset Contains
+The same script runs **on Kaggle** (reads the key from Kaggle Secrets) or **on your computer** (reads it from a `.env` file).
 
-Each row represents one YouTube video from the Coke Studio Bangla channel with the following columns:
+Get a free YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/).
 
-| Column             | Description                                                                                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Video_ID`       | Unique YouTube video identifier                                                                                                                                     |
-| `Video_URL`      | Direct link to the YouTube video                                                                                                                                    |
-| `Title`          | Original video title (Bengali / English)                                                                                                                            |
-| `English_Title`  | Auto-translated English title                                                                                                                                       |
-| `Published_At`   | Date the video was published (`YYYY-MM-DD`)                                                                                                                       |
-| `Video_Duration` | Duration in `MM:SS` or `HH:MM:SS` format                                                                                                                        |
-| `Views`          | Total view count                                                                                                                                                    |
-| `Likes`          | Total like count                                                                                                                                                    |
-| `Comments`       | Total comment count                                                                                                                                                 |
-| `Video_Type`     | Category:`Official Music Video`, `Reels`, `Shorts`, `Behind the Scenes`, `Celebration / Milestone`, `Live Event`, `Promo / Teaser`, `Uncategorized` |
-| `Season`         | Season number:`Season 1`, `Season 2`, `Season 3`, or `Uncategorized`                                                                                        |
-| `Lead_Vocals`    | Lead vocalist(s) extracted from the description                                                                                                                     |
-| `Spotify_Link`   | Official Spotify streaming link (if available)                                                                                                                      |
-| `Director`       | Music video director (if available)                                                                                                                                 |
-| `Genre`          | Detected genres from description (e.g.`Folk, Qawwali, R&B / Soul`). Only assigned for Official Music Videos                                                       |
-| `Thumbnail_URL`  | Highest resolution thumbnail URL (for dashboards)                                                                                                                   |
-| `Last_Updated`   | Timestamp when the data row was last fetched                                                                                                                        |
-| `Video_Details`  | Full raw YouTube video description                                                                                                                                  |
-
----
-
-## ⚙️ Running the Script Yourself
-
-### Step 1: Clone the repository
-
-```bash
-git clone https://github.com/your-username/coke-studio-bangla.git
-cd coke-studio-bangla
-```
-
-### Step 2: Create and activate a virtual environment
+**On your computer**
 
 ```powershell
+git clone https://github.com/saranDnath/coke-studio-bangla-dataset.git
+cd coke-studio-bangla-dataset/data_pipeline
 python -m venv .venv
-.\.venv\Scripts\activate
-```
-
-### Step 3: Install dependencies
-
-```powershell
+.\.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Step 4: Set up your API Key
-
-Create a `.env` file in the project root:
+Create a `.env` file in `data_pipeline/` (it is git-ignored, so it is never pushed):
 
 ```
 YOUTUBE_API_KEY=your_youtube_api_key_here
 ```
 
-> Get a free YouTube Data API v3 key from the [Google Cloud Console](https://console.cloud.google.com/).
-
-### Step 5: Run the pipeline
-
 ```powershell
 python coke_studio_bangla_dataset.py
 ```
 
-This will fetch all videos, enrich them, and save the output as `coke_studio_bangla_raw.csv`.
+The output is saved as `coke_studio_bangla_raw.csv`.
+
+**On Kaggle**
+
+Paste the script into a notebook, add your key under *Add-ons → Secrets* as `YOUTUBE_API_KEY`, and run it. Missing packages are installed automatically.
+
+## 📊 Run the dashboard locally
+
+```powershell
+cd dashboard
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+shiny run --reload app.py
+```
+
+Open http://127.0.0.1:8000. The app downloads the latest dataset from Kaggle automatically. No API key is needed.
+
+**Deploy to shinyapps.io**
+
+```powershell
+pip install rsconnect-python
+rsconnect add --account <account> --name <account> --token <token> --secret <secret>
+rsconnect deploy shiny dashboard --name <account> --title coke-studio-bangla
+```
+
+## Tech stack
+
+Python · pandas · Matplotlib · Shiny for Python · YouTube Data API v3 · Kaggle · kagglehub · shinyapps.io
+
+## License & data
+
+Code is released under the [MIT License](LICENSE).
+Video metadata and statistics come from the public YouTube Data API. All music, videos and trademarks belong to Coke Studio Bangla and their respective owners. This is an independent analytics project and is not affiliated with The Coca-Cola Company.
 
 ---
 
-## 🔍 Key Features
-
-- **Full Pagination**: Fetches all videos from the channel, not just the first 50.
-- **Smart Categorization**: Uses regex-based priority logic to classify `Video_Type` and `Season` from titles, descriptions, and hashtags.
-- **Vocals Extraction**: Parses both colon (`:`) and dash (`-`) formats used across different seasons of CSB.
-- **Genre Detection**: Identifies music genres (Folk, Rock, Qawwali, Fusion, Latin, etc.) from video descriptions — only for Official Music Videos.
-- **High-Res Thumbnails**: Fetches the best available thumbnail URL (`maxres` → `high` → `standard`) for visual dashboards.
-- **Secure by Design**: API key is loaded from a `.env` file and never hardcoded — safe to push to GitHub.
-- **Auto Timestamp**: Each row records when it was last fetched via `Last_Updated`.
-
----
-
-## 🔑 Requirements
-
-- Python 3.8+
-- YouTube Data API v3 Key
-- See `requirements.txt` for all Python packages
-
----
-
-## 📄 License
-
-This project is open source. The data is sourced from the public YouTube API and belongs to Coke Studio Bangla / Coca-Cola.
+Made by [saranDnath](https://github.com/saranDnath) · [Kaggle](https://www.kaggle.com/sarandebnath)

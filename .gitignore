@@ -1,4 +1,21 @@
+# Secrets
 .env
-.venv/
+
+# Python
 __pycache__/
-coke_studio_bangla_raw*.csv
+*.py[cod]
+.venv*/
+venv/
+
+# Data (published on Kaggle, not in git)
+*.csv
+
+# Deployment metadata (machine-specific)
+rsconnect-python/
+rsconnect/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

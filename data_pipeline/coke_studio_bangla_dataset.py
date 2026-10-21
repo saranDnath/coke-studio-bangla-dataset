@@ -1,12 +1,19 @@
 import os
+
+# On Kaggle these two packages are not pre-installed
+if os.environ.get("KAGGLE_KERNEL_RUN_TYPE"):
+    os.system("pip install deep-translator word2number")
+
+# load the libraries
 import requests
 import pandas as pd
 import re
-import math
 from deep_translator import GoogleTranslator
 from word2number import w2n
 from dotenv import load_dotenv
 from datetime import datetime
+
+# function for parsing duration
 
 def parse_duration(pt_str):
     if not pt_str:
@@ -21,13 +28,16 @@ def parse_duration(pt_str):
         return f"{h:02d}:{m:02d}:{s:02d}"
     return f"{m:02d}:{s:02d}"
 
-# Load environment variables from .env file
-load_dotenv()
 
-# 1. Your Credentials & Target
-API_KEY = os.getenv("YOUTUBE_API_KEY")
+# 1. Credentials: Kaggle Secrets when running on Kaggle, otherwise a local .env file
+try:
+    from kaggle_secrets import UserSecretsClient
+    API_KEY = UserSecretsClient().get_secret("YOUTUBE_API_KEY")
+except ImportError:
+    load_dotenv()
+    API_KEY = os.getenv("YOUTUBE_API_KEY")
 if not API_KEY:
-    raise ValueError("Missing YOUTUBE_API_KEY! Please set it in your .env file.")
+    raise ValueError("Missing YOUTUBE_API_KEY! Add it to Kaggle Secrets or your .env file.")
 
 PLAYLIST_ID = "UUIB65_E_7XEScU2NB135wDw"  # Coke Studio Bangla Uploads
 BASE_URL = "https://www.googleapis.com/youtube/v3/playlistItems"
@@ -83,23 +93,28 @@ for i in range(0, len(video_ids), 50):
         title = item['snippet']['title']
         description = item['snippet'].get('description', '')
         text_for_search = title + " " + description
+
+        m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', item['contentDetails'].get('duration', ''))
+        duration_secs = (int(m.group(1) or 0) * 3600 + int(m.group(2) or 0) * 60
+                         + int(m.group(3) or 0)) if m else 0
+
         
-        # -- DYNAMIC LOGIC --
-        
-        # A. Translate Title early
+        # A. Translate Title by google translate
         try:
             eng_title = GoogleTranslator(source='auto', target='en').translate(title)
         except Exception:
             eng_title = title  # Fallback to original if translation fails
             
-        # B. Parse Description Metadata early
+        # B. Parse Description Metadata 
         spotify_link = None
         spotify_match = re.search(r'(?i)(?:Listen on Spotify|Spotify):\s*(https://open\.spotify\.com/[^\s]+)', description)
         if spotify_match:
             spotify_link = spotify_match.group(1)
             
         director = None
-        director_match = re.search(r'(?i)Director:\s*([A-Za-z\s\.]+)', description)
+        # Line must START with "Director:" (skips "Assoc Creative Director:" etc.)
+        # and the name must stay on that line (no \s, which would swallow the next line)
+        director_match = re.search(r'(?im)^\s*Director:\s*([A-Za-z .]+)', description)
         if director_match:
             director = director_match.group(1).strip()
             
@@ -107,6 +122,9 @@ for i in range(0, len(video_ids), 50):
         for line in description.split('\n'):
             line = line.strip()
             if not line or 'engineer' in line.lower() or 'arrangement' in line.lower():
+                continue
+            # Lead vocals only — skip backing singers / choir
+            if re.search(r'(?i)backing|choir|chorus', line):
                 continue
             # Handle both formats: "Artist: Vocals" (S2/S3) and "Artist - Vocals" (S1)
             if 'vocal' in line.lower():
@@ -128,13 +146,17 @@ for i in range(0, len(video_ids), 50):
                     vocals.append(artist)
         vocals_str = ', '.join(vocals) if vocals else None
 
-        # C. Prioritized Video Type 
-        is_shorts = re.search(r'(?i)#shorts|shorts\b', text_for_search)
-        is_reels = re.search(r'(?i)#reels|reels\b', text_for_search)
-        is_bts = re.search(r'(?i)Behind The Magic|BTS|Making|Set Design', title)
-        is_milestone = re.search(r'(?i)million|views?-এ|ফেলেছে|অভিনন্দন|congratulat', title)
+        # C. Prioritized Video Type
+        # Hashtags (#Shorts / #Reels, even glued like "#ReelsSong") count anywhere,
+        # but the plain word only counts in the TITLE — descriptions contain credits
+        # like "VIDEO PRODUCTION: INDIE REELS" that are not reels.
+        is_shorts = re.search(r'(?i)#shorts', text_for_search) or re.search(r'(?i)\bshorts\b', title)
+        is_reels = re.search(r'(?i)#reels', text_for_search) or re.search(r'(?i)\breels?\b', title)
+        # \b = whole words only, so e.g. "BTS" can't match inside another word
+        is_bts = re.search(r'(?i)Behind The Magic|\bBTS\b|\bMaking\b|Set Design', title)
+        is_milestone = re.search(r'(?i)\bmillion\b|views?-এ|ফেলেছে|অভিনন্দন|congratulat', title)
         is_live = re.search(r'(?i)\blive\b|লাইভ', title)
-        is_promo = re.search(r'(?i)Teaser|Promo|Trailer|Announcement|আসছে', title)
+        is_promo = re.search(r'(?i)\bTeaser\b|\bPromo\b|\bTrailer\b|\bAnnouncement\b|আসছে', title)
         
         if is_shorts:
             video_type = "Shorts"
@@ -148,29 +170,41 @@ for i in range(0, len(video_ids), 50):
             video_type = "Live Event"
         elif is_promo:
             video_type = "Promo / Teaser"
+        elif duration_secs <= 90:
+            # Untagged vertical clips (16-sec snippets, 01:01 song stories) — not full songs.
+            # Shortest real music video is ~3:48, so 90s is a safe cut-off.
+            video_type = "Shorts"
         elif spotify_link or vocals_str:
             video_type = "Official Music Video"
         else:
             video_type = "Uncategorized"
 
         # F. Genre Detection (only for Official Music Videos)
-        GENRE_KEYWORDS = {
-            'Folk': ['folk', 'baul', 'bhatiali', 'bhawaiya', 'hajong', 'lalon', 'marfati', 'jari', 'sari'],
-            'Qawwali': ['qawwali', 'qawali', 'qalandar', 'sufi'],
-            'Rock': ['rock', 'metal', 'hard rock', 'alternative'],
-            'Pop': ['pop'],
-            'Classical': ['classical', 'raga', 'thumri', 'kheyal'],
-            'Fusion': ['fusion'],
-            'Latin': ['latin', 'bossa nova', 'samba'],
-            'Jazz': ['jazz'],
-            'R&B / Soul': ['r&b', 'soul', 'blues'],
-            'Hip-Hop': ['hip-hop', 'rap', 'hip hop'],
+        # Whole-word regexes (\b): plain substrings matched names/credits before,
+        # e.g. 'sari' in "Ansari", 'rap' in "Photography", 'blues' in "Blues Production".
+        GENRE_PATTERNS = {
+            'Folk': r'\bfolk\b|\bbaul\b|\bbhatiali\b|\bbhawaiya\b|\bhajong\b|\blalon\b|\bmarfati\b|\bjari\b|\bsari gaan\b|\bkirtan\b',
+            'Qawwali': r'\bqaw+ali\b|\bqalandar\b|\bsufi\b',
+            'Rock': r'\brock\b|\bmetal\b',
+            'Pop': r'\bpop\b',
+            'Classical': r'\bclassical\b|\braa?ga?\b|\bthumri\b|\bkheyal\b|\bkhayal\b|\bgharana\b',
+            'Fusion': r'\bfusion\b',
+            'Latin': r'\blatin\b|\bbossa nova\b|\bsamba\b',
+            'Jazz': r'\bjazz\w*\b',
+            'R&B / Soul': r'\br&b\b|\bsoul music\b|\bneo-soul\b|\bblues\b',
+            'Hip-Hop': r'\bhip[- ]?hop\b|\brap\b|\brapper\b|\brapping\b',
+            'Afrobeat': r'\bafrobeats?\b',
         }
         if video_type == "Official Music Video":
+            # Search only the song's story paragraphs, not the credits list.
+            # Credits are short lines and/or "Role: Name" lines.
+            story_text = '\n'.join(
+                line.strip() for line in description.split('\n')
+                if len(line.strip()) >= 80 and ':' not in line.strip()[:40]
+            )
             detected_genres = []
-            desc_lower = description.lower()
-            for genre, keywords in GENRE_KEYWORDS.items():
-                if any(kw in desc_lower for kw in keywords):
+            for genre, pattern in GENRE_PATTERNS.items():
+                if re.search(pattern, story_text, re.IGNORECASE):
                     detected_genres.append(genre)
             # Default to Fusion for CSB since it's always cross-genre
             if not detected_genres:
@@ -180,7 +214,7 @@ for i in range(0, len(video_ids), 50):
             genre_str = "Not Applicable"
         
         # D. Extract the Season dynamically
-        season_match = re.search(r'(?i)(?:CokeStudioBanglaSeason|CokeStudioBanglaS|CSB S|Season)\s*(\d+|one|two|three|four)', text_for_search)
+        season_match = re.search(r'(?i)(?:CokeStudioBanglaSeason|CokeStudioBanglaS|CSB S|Season)\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b', text_for_search)
         season = "Uncategorized"
         if season_match:
             season_val = season_match.group(1).lower()
@@ -235,7 +269,7 @@ for i in range(0, len(video_ids), 50):
             'Video_Details': description
         })
 
-# 4. Save to your local directory
+# 4. Save to local directory
 df = pd.DataFrame(video_data)
 output_path = "coke_studio_bangla_raw.csv"
 
@@ -246,5 +280,5 @@ except PermissionError:
     import time
     fallback_path = f"coke_studio_bangla_raw_{int(time.time())}.csv"
     df.to_csv(fallback_path, index=False)
-    print(f"\n⚠️ PermissionError: '{output_path}' was open and locked.")
+    print(f"\n PermissionError: '{output_path}' was open and locked.")
     print(f"Success! Dataset was safely saved instead to: {fallback_path}")
